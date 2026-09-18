@@ -7,7 +7,7 @@ import uvicorn
 from database import engine, get_db, Base
 import models
 import schemas
-from agent.graph import run_agent
+from agent.graph import run_agent, run_refine_agent
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -38,16 +38,33 @@ async def extract_complaint(
     if not text and not file:
         raise HTTPException(status_code=400, detail="Must provide text or file")
     
-    content = text
+    content = ""
+    if text:
+        content += f"User Text:\n{text}\n\n"
     if file:
         # In a real app, use PyPDF2 or similar OCR for PDFs
-        # For this demo, we assume the file is a text file or we just use the text input
-        content = await file.read()
-        content = content.decode('utf-8')
-    
-    # Run LangGraph Agent
-    result = await run_agent(content)
-    
+        # For this demo, we assume the file is a text file
+        file_bytes = await file.read()
+        content += f"File Content:\n{file_bytes.decode('utf-8', errors='replace')}"
+
+    # Run LangGraph Agent. Surface failures as a JSON `detail` so the UI can
+    # show the real reason instead of its generic "Extraction failed" fallback.
+    try:
+        result = await run_agent(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return result
+
+@app.post("/api/complaints/refine", response_model=schemas.ExtractionResponse)
+async def refine_complaint(request: schemas.RefineRequest):
+    """
+    Endpoint to refine existing complaint data based on a user prompt.
+    """
+    try:
+        result = await run_refine_agent(request.current_data, request.prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return result
 
 @app.post("/api/complaints/", response_model=schemas.ComplaintResponse)

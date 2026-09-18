@@ -48,16 +48,33 @@ const initialState: ComplaintState = {
 
 export const extractComplaintData = createAsyncThunk(
   'complaint/extract',
-  async (text: string, { rejectWithValue }) => {
+  async ({ text, file }: { text: string, file: File | null }, { rejectWithValue }) => {
     try {
       const formData = new FormData();
-      formData.append('text', text);
+      if (text) {
+        formData.append('text', text);
+      }
+      if (file) {
+        formData.append('file', file);
+      }
       const response = await axios.post('http://localhost:8000/api/complaints/extract', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response.data; // { extracted_data, risk_analysis }
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.detail || 'Extraction failed');
+    }
+  }
+);
+
+export const refineComplaintData = createAsyncThunk(
+  'complaint/refine',
+  async (payload: { current_data: ComplaintData, prompt: string }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post('http://localhost:8000/api/complaints/refine', payload);
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.detail || 'Refinement failed');
     }
   }
 );
@@ -116,6 +133,27 @@ export const complaintSlice = createSlice({
         state.riskAssessment = action.payload.risk_analysis;
       })
       .addCase(extractComplaintData.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
+        state.extractionProgress = 0;
+      })
+      .addCase(refineComplaintData.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+        state.extractionProgress = 50;
+      })
+      .addCase(refineComplaintData.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.extractionProgress = 100;
+        const extracted = action.payload.extracted_data;
+        Object.keys(extracted).forEach(key => {
+          if (extracted[key] !== null) {
+            (state.formData as any)[key] = extracted[key];
+          }
+        });
+        state.riskAssessment = action.payload.risk_analysis;
+      })
+      .addCase(refineComplaintData.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload as string;
         state.extractionProgress = 0;

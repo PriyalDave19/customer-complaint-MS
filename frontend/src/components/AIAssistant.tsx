@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../store';
-import { extractComplaintData } from '../store/complaintSlice';
+import { extractComplaintData, refineComplaintData } from '../store/complaintSlice';
 import { Sparkles, UploadCloud, FileText, Info, Bot, Send, AlertTriangle, CheckCircle, Target } from 'lucide-react';
 
 const AIAssistant = () => {
   const [inputText, setInputText] = useState('');
+  const [chatPrompt, setChatPrompt] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dispatch = useDispatch<AppDispatch>();
-  const { status, extractionProgress, riskAssessment, error } = useSelector((state: RootState) => state.complaint);
+  const { status, extractionProgress, riskAssessment, error, formData } = useSelector((state: RootState) => state.complaint);
 
   const handleExtract = () => {
-    if (!inputText.trim()) return;
-    dispatch(extractComplaintData(inputText));
+    if (!inputText.trim() && !selectedFile) return;
+    dispatch(extractComplaintData({ text: inputText, file: selectedFile }));
+  };
+
+  const handleRefine = () => {
+    if (!chatPrompt.trim()) return;
+    dispatch(refineComplaintData({ current_data: formData, prompt: chatPrompt }));
+    setChatPrompt('');
   };
 
   return (
@@ -28,18 +37,33 @@ const AIAssistant = () => {
       </div>
 
       <div className="p-6 flex-1 overflow-y-auto space-y-6">
-        {/* Upload Area (Mock) */}
-        <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:border-primary-300 transition-colors cursor-pointer bg-gray-50/30">
+        {/* Upload Area */}
+        <div 
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-gray-200 rounded-lg p-8 flex flex-col items-center justify-center text-center hover:border-primary-300 transition-colors cursor-pointer bg-gray-50/30"
+        >
           <UploadCloud className="w-8 h-8 text-gray-400 mb-3" />
           <p className="text-sm font-medium text-gray-700">
-            Drag & drop complaint document here
+            {selectedFile ? selectedFile.name : "Drag & drop complaint document here"}
           </p>
-          <p className="text-sm text-primary-600 mt-1">or click to browse</p>
+          <p className="text-sm text-primary-600 mt-1">
+            {selectedFile ? "Click to change file" : "or click to browse"}
+          </p>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setSelectedFile(e.target.files[0]);
+              }
+            }}
+          />
         </div>
 
         <div className="relative flex items-center py-2">
           <div className="flex-grow border-t border-gray-200"></div>
-          <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium uppercase">or</span>
+          <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-medium uppercase">and/or</span>
           <div className="flex-grow border-t border-gray-200"></div>
         </div>
 
@@ -66,7 +90,7 @@ const AIAssistant = () => {
           </div>
           <button
             onClick={handleExtract}
-            disabled={status === 'loading' || !inputText.trim()}
+            disabled={status === 'loading' || (!inputText.trim() && !selectedFile)}
             className="w-full mt-4 bg-primary-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
           >
             {status === 'loading' ? 'Extracting...' : 'Extract Details'}
@@ -163,10 +187,19 @@ const AIAssistant = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="Ask me anything about this complaint..."
+            value={chatPrompt}
+            onChange={(e) => setChatPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleRefine();
+            }}
+            placeholder="Ask me anything to update the form..."
             className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm shadow-sm"
           />
-          <button className="absolute right-2 top-2 p-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors">
+          <button 
+            onClick={handleRefine}
+            disabled={status === 'loading'}
+            className="absolute right-2 top-2 p-1.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50"
+          >
             <Send className="w-4 h-4" />
           </button>
         </div>
