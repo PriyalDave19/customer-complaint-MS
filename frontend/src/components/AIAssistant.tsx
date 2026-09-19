@@ -73,7 +73,7 @@ const AIAssistant = () => {
             <div className="absolute inset-y-0 left-0 pl-3 pt-3 pointer-events-none">
               <FileText className="h-5 w-5 text-gray-400" />
             </div>
-            <textarea
+       <textarea                                                 
               className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white shadow-sm text-sm"
               rows={4}
               placeholder="Paste Complaint Text / Email here..."
@@ -88,7 +88,7 @@ const AIAssistant = () => {
               <p>Max file size: 10MB</p>
             </div>
           </div>
-          <button
+        <button
             onClick={handleExtract}
             disabled={status === 'loading' || (!inputText.trim() && !selectedFile)}
             className="w-full mt-4 bg-primary-600 text-white rounded-lg py-2.5 text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"

@@ -27,7 +27,7 @@ app.add_middleware(
 def read_root():
     return {"message": "AIVOA QMS API is running"}
 
-@app.post("/api/complaints/extract", response_model=schemas.ExtractionResponse)
+@app.post("/api/complaints/extract", response_model=schemas.ExtractionResponse)  ####
 async def extract_complaint(
     text: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None)
